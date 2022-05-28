@@ -62,10 +62,14 @@ class OutputDecoder(keras.layers.Layer):
 
     def call(self, pred):
         # get confidence scores
-        classes = pred[..., 10:]
-        score1 = pred[..., 4, None]
+        classes = tf.maximum(pred[..., 10:], 0.)
+
+        cond = tf.equal(classes, tf.reduce_max(classes, axis=[-1])[..., None])
+        classes = tf.where(cond, classes, tf.zeros_like(classes))
+
+        score1 = tf.maximum(pred[..., 4, None], 0.)
         score1 = tf.reshape(self._get_confidence(score1, classes), (-1, 7 * 7, 20))
-        score2 = pred[..., 4 + 5, None]
+        score2 = tf.maximum(pred[..., 4 + 5, None], 0.)
         score2 = tf.reshape(self._get_confidence(score2, classes), (-1, 7 * 7, 20))
         scores = tf.concat([score1, score2], axis=1)
 
