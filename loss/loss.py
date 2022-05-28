@@ -35,15 +35,15 @@ def convert_to_corner(points):
 
 # calculate intersection over union
 def calculate_iou(box1, box2):
-    box1_corner = convert_to_corner(box1)   # get corner point
-    box2_corner = convert_to_corner(box2)   # get corner point
+    box1_corner = tf.maximum(convert_to_corner(box1), 0.)  # get corner point
+    box2_corner = tf.maximum(convert_to_corner(box2), 0.)  # get corner point
 
     lu = tf.maximum(box1_corner[..., :2], box2_corner[..., :2])    # intersection left top
     rd = tf.minimum(box1_corner[..., 2:], box2_corner[...,  2:])    # intersection right down
     intersection = tf.maximum(tf.zeros_like(rd - lu), rd - lu)    # intersection width, height
     intersection_area = intersection[..., 0] * intersection[..., 1]
-    box1_area = (box1[..., 2] - box1[..., 0]) * (box1[..., 3] - box1[..., 1])
-    box2_area = (box2[..., 2] - box2[..., 0]) * (box2[..., 3] - box2[..., 1])
+    box1_area = (box1[..., 2]) * (box1[..., 3])
+    box2_area = (box2[..., 2]) * (box2[..., 3])
     union_area = tf.maximum(
         box1_area + box2_area - intersection_area, 1e-8
     )
@@ -72,7 +72,7 @@ def get_responsible_cell(y_true, y_pred, obj_cell):
     box1_responsible = tf.where(concat_iou[..., 0] >= concat_iou[..., 1], 1., 0.) * obj_cell
     # if box2 more responsible
     box2_responsible = tf.where(concat_iou[..., 0] < concat_iou[..., 1], 1., 0.) * obj_cell
-    return tf.stack([box1_responsible, box2_responsible], axis=-1)
+    return tf.stack([box1_responsible, box2_responsible], axis=-1), concat_iou
 
 
 # yolo loss
@@ -102,7 +102,7 @@ def yolo_loss(y_true, y_pred):
     class_true = y_true[..., 5:]
 
     obj_cell = tf.where(y_true[:, :, :, 4] == 1., 1., 0.)   # where the cell idx is existed object
-    responsible_cell = get_responsible_cell(y_true, y_pred, obj_cell)   # where the cell idx is responsible
+    responsible_cell, iou_scores = get_responsible_cell(y_true, y_pred, obj_cell)   # where the cell idx is responsible
     non_responsible_cell = tf.where(responsible_cell == 0., 1., 0.)   # where the cell idx is not responsible
 
     # x,y loss
@@ -118,11 +118,11 @@ def yolo_loss(y_true, y_pred):
     wh_loss = tf.reduce_sum(wh_loss, [1, 2, 3]) * coord
 
     # confidence loss
-    c_loss = tf.square(c_point_pred - 1.) * responsible_cell
+    c_loss = tf.square(c_point_pred - iou_scores) * responsible_cell
     c_loss = tf.reduce_sum(c_loss, [1, 2, 3])
 
     # not confidence loss
-    non_c_loss = tf.square(c_point_pred - 0.) * non_responsible_cell
+    non_c_loss = tf.square(c_point_pred - iou_scores) * non_responsible_cell
     non_c_loss = tf.reduce_sum(non_c_loss, [1, 2, 3]) * noobj
 
     # class loss
@@ -152,8 +152,8 @@ if __name__ == '__main__':
     # temp[0, 3, 2, 7] = 1.
 
     temp_pred = tf.zeros(shape=[1, 7, 7, 30]).numpy()
-    temp_pred[0, 3, 2, :5] = [0, 0, 0, 0, 1.]
-    # temp_pred[0, 3, 2, :5] = [0.6170765625,  0.6170765625, 0.4256133705, -0.225492066, 0.994193]
-    # temp_pred[0, 3, 2, 5:10] = [0.7870578125, 0.7870578125, 0.9329433, 0.92087924, 0.9920917]
+    # temp_pred[0, 3, 2, :5] = [0, 0, 0, 0, 1.]
+    temp_pred[0, 3, 2, :5] = [0.6170765625,  0.6170765625, 0.4256133705, -0.225492066, 0.994193]
+    temp_pred[0, 3, 2, 5:10] = [0.7870578125, 0.7870578125, 0.9329433, 0.92087924, 0.9920917]
 
     print(yolo_loss(temp, temp_pred))
