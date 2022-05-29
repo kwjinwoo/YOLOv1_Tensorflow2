@@ -13,8 +13,8 @@ def convert_to_origin(box, obj_cell):
     x_cells = tf.transpose(y_cells, perm=[0, 2, 1])
 
     # except none object cell
-    x_cells *= tf.squeeze(obj_cell)
-    y_cells *= tf.squeeze(obj_cell)
+    x_cells *= obj_cell
+    y_cells *= obj_cell
 
     converted_x = (x_cells * 32.) + (box[:, :, :, 0] * 32.)   # origin center x
     converted_y = (y_cells * 32.) + (box[:, :, :, 1] * 32.)   # origin center y
@@ -34,14 +34,16 @@ def convert_to_corner(points):
 
 
 # calculate intersection over union
+# box = [x, y, w, h]
 def calculate_iou(box1, box2):
-    box1_corner = tf.maximum(convert_to_corner(box1), 0.)  # get corner point
-    box2_corner = tf.maximum(convert_to_corner(box2), 0.)  # get corner point
+    box1_corner = convert_to_corner(box1)   # get corner point
+    box2_corner = convert_to_corner(box2)   # get corner point
 
     lu = tf.maximum(box1_corner[..., :2], box2_corner[..., :2])    # intersection left top
     rd = tf.minimum(box1_corner[..., 2:], box2_corner[...,  2:])    # intersection right down
     intersection = tf.maximum(tf.zeros_like(rd - lu), rd - lu)    # intersection width, height
     intersection_area = intersection[..., 0] * intersection[..., 1]
+
     box1_area = (box1[..., 2]) * (box1[..., 3])
     box2_area = (box2[..., 2]) * (box2[..., 3])
     union_area = tf.maximum(
@@ -127,7 +129,7 @@ def yolo_loss(y_true, y_pred):
 
     # class loss
     class_loss = tf.square(class_pred - class_true)
-    class_loss = tf.reduce_sum(class_loss, axis=-1) * tf.squeeze(obj_cell)
+    class_loss = tf.reduce_sum(class_loss, axis=-1) * obj_cell
     class_loss = tf.reduce_sum(class_loss, [1, 2])
 
 
@@ -135,25 +137,3 @@ def yolo_loss(y_true, y_pred):
     total_loss = xy_loss + wh_loss + c_loss + non_c_loss + class_loss
     total_loss = tf.reduce_mean(total_loss)   # batch loss
     return total_loss
-
-
-if __name__ == '__main__':
-    # temp = tf.zeros(shape=[4, 7, 7, 125]).numpy()
-    # # temp_pred = tf.zeros(shape=[4, 7, 7, 130]).numpy()
-    # temp_pred = tf.random.normal(shape=[4, 7, 7, 130])
-    # temp[:, 2, 3, 4] = 1.
-    # temp[:, 3, 3, 4] = 1.
-    # temp[:, 2, 3, :4] = [float((112 - 2 * 32.0) / 32.0), float((112 - 3 * 32.0) / 32.0), 1., 1.]
-    # temp[:, 3, 3, :4] = [float((112 - 2 * 32.0) / 32.0), float((112 - 3 * 32.0) / 32.0), 1., 1.]
-    # # temp_pred[:, 2, 3, :4] = [float((112 - 2 * 32.0) / 32.0),  float((112 - 3 * 32.0) / 32.0), 1., 1.]
-    # # temp_pred[:, 3, 3, 5:9] = [float((112 - 2 * 32.0) / 32.0), float((112 - 3 * 32.0) / 32.0), 1., 1.]
-    temp = tf.zeros(shape=[1, 7, 7, 25]).numpy()
-    temp[0, 3, 2, :5] = [0.83378744, 0.6981132, 0.89373296, 0.9292453, 1.]
-    # temp[0, 3, 2, 7] = 1.
-
-    temp_pred = tf.zeros(shape=[1, 7, 7, 30]).numpy()
-    # temp_pred[0, 3, 2, :5] = [0, 0, 0, 0, 1.]
-    temp_pred[0, 3, 2, :5] = [0.6170765625,  0.6170765625, 0.4256133705, -0.225492066, 0.994193]
-    temp_pred[0, 3, 2, 5:10] = [0.7870578125, 0.7870578125, 0.9329433, 0.92087924, 0.9920917]
-
-    print(yolo_loss(temp, temp_pred))
