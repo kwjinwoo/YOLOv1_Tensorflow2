@@ -89,7 +89,7 @@ class OutputDecoder(keras.layers.Layer):
         result = tf.image.combined_non_max_suppression(
                                                      boxes=tf.expand_dims(swap_corners, axis=2),
                                                      scores=scores,
-                                                     max_output_size_per_class=self.max_detection_per_class,
+                                                     max_output_size_per_class=49,
                                                      max_total_size=self.max_detection,
                                                      iou_threshold=self.iou_threshold,
                                                      score_threshold=self.score_threshold,
