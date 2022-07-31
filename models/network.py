@@ -49,10 +49,10 @@ class OutputDecoder(keras.layers.Layer):
         y_cells = tf.zeros_like(box[..., 0]) + cell_num
         x_cells = tf.transpose(y_cells, perm=[0, 2, 1])
 
-        converted_x = tf.maximum((x_cells * 32.) + (box[:, :, :, 0] * 32.), 0.)  # origin center x
-        converted_y = tf.maximum((y_cells * 32.) + (box[:, :, :, 1] * 32.), 0.)  # origin center y
-        converted_w = tf.minimum(box[..., 2] * 224., 224.)  # origin center w
-        converted_h = tf.minimum(box[..., 3] * 224., 224.)  # origin center h
+        converted_x = tf.maximum((x_cells * 64.) + (box[:, :, :, 0] * 64.), 0.)  # origin center x
+        converted_y = tf.maximum((y_cells * 64.) + (box[:, :, :, 1] * 64.), 0.)  # origin center y
+        converted_w = tf.minimum(box[..., 2] * 448., 448.)  # origin center w
+        converted_h = tf.minimum(box[..., 3] * 448., 448.)  # origin center h
         return tf.stack([converted_x, converted_y, converted_w, converted_h], axis=-1)
 
     # get confidence score
