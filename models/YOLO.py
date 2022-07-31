@@ -1,7 +1,8 @@
 import tensorflow as tf
 from tensorflow import keras
 from keras.layers import Conv2D, MaxPool2D, Dense, Flatten, Reshape, Dropout
-from keras.models import Sequential, Model
+from keras.models import Sequential
+from keras.regularizers import L2
 
 
 # for pre training
@@ -36,26 +37,39 @@ def build_extractor(input_shape):
     return feature_extractor
 
 
-def build_head(s, num_class):
-    head = Sequential([
-        Conv2D(filters=1024, kernel_size=3, padding='same', use_bias=False, activation='relu'),
-        Conv2D(filters=1024, kernel_size=3, strides=2, padding='same', use_bias=False, activation='relu'),
-        Conv2D(filters=1024, kernel_size=3, padding='same', use_bias=False, activation='relu'),
-        Conv2D(filters=1024, kernel_size=3, padding='same', use_bias=False, activation='relu'),
-        Flatten(),
-        Dense(units=4096, activation='relu'),
-        Dropout(0.5),
-        Dense(units=(s * s * (num_class + 10))),
-        Reshape((s, s, num_class + 10))
-    ], name='head')
+def build_head(s, num_class, decay):
+    if decay:
+        head = Sequential([
+            Conv2D(filters=1024, kernel_size=3, padding='same', use_bias=False, activation='relu'),
+            Conv2D(filters=1024, kernel_size=3, strides=2, padding='same', use_bias=False, activation='relu'),
+            Conv2D(filters=1024, kernel_size=3, padding='same', use_bias=False, activation='relu'),
+            Conv2D(filters=1024, kernel_size=3, padding='same', use_bias=False, activation='relu'),
+            Flatten(),
+            Dense(units=4096, activation='relu'),
+            Dropout(0.5),
+            Dense(units=(s * s * (num_class + 10)), kernel_regularizer=L2(decay)),
+            Reshape((s, s, num_class + 10))
+        ], name='head')
+    else:
+        head = Sequential([
+            Conv2D(filters=1024, kernel_size=3, padding='same', use_bias=False, activation='relu'),
+            Conv2D(filters=1024, kernel_size=3, strides=2, padding='same', use_bias=False, activation='relu'),
+            Conv2D(filters=1024, kernel_size=3, padding='same', use_bias=False, activation='relu'),
+            Conv2D(filters=1024, kernel_size=3, padding='same', use_bias=False, activation='relu'),
+            Flatten(),
+            Dense(units=4096, activation='relu'),
+            Dropout(0.5),
+            Dense(units=(s * s * (num_class + 10))),
+            Reshape((s, s, num_class + 10))
+        ], name='head')
     return head
 
 
-def build_yolo(input_shape, s, num_class, pretrained=False):
+def build_yolo(input_shape, s, num_class, decay=None, pretrained=False):
     feature_extractor = build_extractor(input_shape)
     if pretrained:
         feature_extractor.load_weights(pretrained)
-    head = build_head(s, num_class)
+    head = build_head(s, num_class, decay)
 
     yolo = Sequential([
         feature_extractor,
