@@ -1,10 +1,12 @@
 from utils import data_utils
-from loss import loss
+from loss import YOLOLoss
 from models import network
 from tensorflow import keras
 import argparse
 
 parser = argparse.ArgumentParser(description='Train detector file')
+parser.add_argument('--img_size', default=448, type=int, help="image input size")
+parser.add_argument('--s', default=7, type=int, help="output grid num")
 parser.add_argument('--num_epoch', default=135, type=int, help='train_epoch')
 parser.add_argument('--batch_size', default=64, type=int, help='batch_size')
 parser.add_argument('--lr', default=1e-3, type=float, help='batch_size')
@@ -25,18 +27,22 @@ def lr_scheduler(epoch, lr):
 
 
 if __name__ == '__main__':
+    img_size = args.img_size
+    s = args.s
+
     num_epochs = args.num_epoch
     batch_size = args.batch_size
 
     detector = network.build_model()
     optimizer = keras.optimizers.Adam(learning_rate=args.lr)
-    detector.compile(loss=loss.yolo_loss, optimizer=optimizer)
+    loss = YOLOLoss.get_yolo_loss(img_size, s)
+    detector.compile(loss=loss, optimizer=optimizer)
 
     train_ds = data_utils.get_train_dataset(batch_size=batch_size)
     val_ds = data_utils.get_val_dataset(batch_size=batch_size)
 
     callbacks_list = [keras.callbacks.ModelCheckpoint(
-        filepath='./ckpt/detector',
+        filepath='./ckpt/yolo',
         monitor='val_loss',
         mode='min',
         save_weights_only=True,
