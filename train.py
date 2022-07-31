@@ -1,4 +1,4 @@
-from utils import data_utils
+from utils.Dataset import DatasetLoader
 from loss import YOLOLoss
 from models import YOLO
 from tensorflow import keras
@@ -6,6 +6,8 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Train detector file')
 parser.add_argument('--img_size', default=448, type=int, help="image input size")
+parser.add_argument('--train_path', required=True, type=str, help="train tfrecord path")
+parser.add_argument('--val_path', required=True, type=str, help="val tfrecord path")
 parser.add_argument('--s', default=7, type=int, help="output grid num")
 parser.add_argument('--num_class', default=20, type=int, help="the number of class")
 parser.add_argument('--pretrain', default=None, type=str, help="pretrained model weights path")
@@ -41,14 +43,14 @@ if __name__ == '__main__':
     if pretrain:
         yolo = YOLO.build_yolo((img_size, img_size, 3), s, num_class, decay, pretrain)
     else:
-        yolo = YOLO.build_yolo((img_size, img_size, 3), s, decay, num_class)
+        yolo = YOLO.build_yolo((img_size, img_size, 3), s, num_class, decay)
 
-    optimizer = keras.optimizers.SGD(learning_rate=args.lr, momentum=0.9)
+    optimizer = keras.optimizers.SGD(learning_rate=1e-3, momentum=0.9)
     loss = YOLOLoss.get_yolo_loss(img_size, s)
     yolo.compile(loss=loss, optimizer=optimizer)
 
-    train_ds = data_utils.get_train_dataset(batch_size=batch_size)
-    val_ds = data_utils.get_val_dataset(batch_size=batch_size)
+    loader = DatasetLoader(args.train_path, args.val_path, img_size, s, num_class)
+    train_ds, val_ds = loader.get_dataset(batch_size)
 
     callbacks_list = [keras.callbacks.ModelCheckpoint(
         filepath='./ckpt/yolo',

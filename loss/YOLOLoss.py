@@ -58,11 +58,11 @@ def get_responsible_cell(y_true, y_pred, obj_cell, img_size, s):
     box1 = y_pred[..., :4]
     box2 = y_pred[..., 5:9]
     # converted box_info
-    converted_box1 = convert_to_origin(box1, obj_cell)
-    converted_box2 = convert_to_origin(box2, obj_cell)
+    converted_box1 = convert_to_origin(box1, obj_cell, img_size, s)
+    converted_box2 = convert_to_origin(box2, obj_cell, img_size, s)
 
     gt_box = y_true[:, :, :, :4]   # ground truth box
-    converted_gt_box = convert_to_origin(gt_box, obj_cell)   # converted box_info
+    converted_gt_box = convert_to_origin(gt_box, obj_cell, img_size, s)   # converted box_info
 
     # get iou grid
     box1_iou = calculate_iou(converted_box1, converted_gt_box)   # [batch_size, 7, 7]

@@ -193,11 +193,13 @@ class DatasetLoader:
         grid = self.make_grid(names, bndboxes)
         return img, grid
 
-    def get_dataset(self):
-        train_ds = tf.data.TFRecordDataset([self.train_path]).map(self.tfrecord_reader).map(self.resize_and_scaling)
-        train_ds = train_ds.map(augmentation).map(self.get_output_grid).prefetch(tf.data.AUTOTUNE)
+    def get_dataset(self, batch_size):
+        train_ds = tf.data.TFRecordDataset([self.train_path]).map(self.tfrecord_reader).map(augmentation)
+        train_ds = train_ds.map(self.resize_and_scaling).map(self.get_output_grid).batch(batch_size)
+        train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
+
         val_ds = tf.data.TFRecordDataset([self.val_path]).map(self.tfrecord_reader).map(self.resize_and_scaling)
-        val_ds = val_ds.map(self.get_output_grid).prefetch(tf.data.AUTOTUNE)
+        val_ds = val_ds.map(self.get_output_grid).batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
         return train_ds, val_ds
 
