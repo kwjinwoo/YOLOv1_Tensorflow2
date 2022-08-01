@@ -4,6 +4,7 @@ from models import YOLO
 from tensorflow import keras
 import argparse
 
+
 parser = argparse.ArgumentParser(description='Train detector file')
 parser.add_argument('--img_size', default=448, type=int, help="image input size")
 parser.add_argument('--train_path', required=True, type=str, help="train tfrecord path")

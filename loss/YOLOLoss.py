@@ -124,7 +124,7 @@ def get_yolo_loss(img_size, s):
         c_loss = tf.reduce_sum(c_loss, [1, 2, 3])
 
         # not confidence loss
-        non_c_loss = tf.square(c_point_pred - 0.) * non_responsible_cell
+        non_c_loss = tf.square(c_point_pred - iou_scores) * non_responsible_cell
         non_c_loss = tf.reduce_sum(non_c_loss, [1, 2, 3]) * noobj
 
         # class loss

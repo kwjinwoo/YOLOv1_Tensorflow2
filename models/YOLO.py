@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow import keras
-from keras.layers import Conv2D, MaxPool2D, Dense, Flatten, Reshape, Dropout
-from keras.models import Sequential
+from keras.layers import Conv2D, MaxPool2D, Dense, Flatten, Reshape, Dropout, Input, GlobalAvgPool2D
+from keras.models import Sequential, Model
 from keras.regularizers import L2
 
 
@@ -78,9 +78,21 @@ def build_yolo(input_shape, s, num_class, decay=None, pretrained=False):
     return yolo
 
 
-if __name__ == "__main__":
-    pretrain_model = build_extractor((448, 448, 3))
-    yolo_model = build_yolo((448, 448, 3), 7, 20)
+def build_pretrain(input_shape, num_class, decay):
+    feature_extractor = build_extractor(input_shape)
 
+    inputs = Input(input_shape)
+    x = feature_extractor(inputs)
+    out = GlobalAvgPool2D()(x)
+    out = Dropout(0.5)(out)
+    out = Dense(num_class, activation='softmax', kernel_regularizer=L2(decay))(out)
+
+    return Model(inputs, out)
+
+
+if __name__ == "__main__":
+    # pretrain_model = build_extractor((448, 448, 3))
+    yolo_model = build_yolo((448, 448, 3), 7, 20)
+    pretrain_model = build_pretrain((224, 224, 3), 1000, 0.005)
     print(pretrain_model.summary())
     print(yolo_model.summary())
