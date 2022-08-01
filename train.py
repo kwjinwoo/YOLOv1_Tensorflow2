@@ -50,16 +50,9 @@ if __name__ == '__main__':
     yolo.compile(loss=loss, optimizer=optimizer)
 
     loader = DatasetLoader(args.train_path, args.val_path, img_size, s, num_class)
-    train_ds, val_ds = loader.get_dataset(batch_size)
+    train_ds = loader.get_dataset(batch_size)
 
-    callbacks_list = [keras.callbacks.ModelCheckpoint(
-        filepath='./ckpt/yolo',
-        monitor='val_loss',
-        mode='min',
-        save_weights_only=True,
-        save_best_only=True,
-        verbose=1
-    ),
-        keras.callbacks.LearningRateScheduler(lr_scheduler, verbose=1)]
+    callbacks_list = [keras.callbacks.LearningRateScheduler(lr_scheduler, verbose=1)]
 
-    hist = yolo.fit(train_ds, validation_data=val_ds, epochs=num_epochs, callbacks=callbacks_list)
+    hist = yolo.fit(train_ds, epochs=num_epochs, callbacks=callbacks_list)
+    yolo.save_weights('./ckpt/yolo')

@@ -19,7 +19,7 @@ def build_model(input_shape=(224, 224, 3), train_type='OD'):
 # convert output to bounding box
 # using non maximum suppression(nms)
 class OutputDecoder(keras.layers.Layer):
-    def __init__(self, max_detection_per_class=100, max_detection=100, iou_threshold=0.5, score_threshold=0.05):
+    def __init__(self, max_detection_per_class=100, max_detection=100, iou_threshold=0.4, score_threshold=0.05):
         super(OutputDecoder, self).__init__()
         self.max_detection_per_class = max_detection_per_class
         self.iou_threshold = iou_threshold
@@ -49,8 +49,8 @@ class OutputDecoder(keras.layers.Layer):
         y_cells = tf.zeros_like(box[..., 0]) + cell_num
         x_cells = tf.transpose(y_cells, perm=[0, 2, 1])
 
-        converted_x = tf.maximum((x_cells * 64.) + (box[:, :, :, 0] * 64.), 0.)  # origin center x
-        converted_y = tf.maximum((y_cells * 64.) + (box[:, :, :, 1] * 64.), 0.)  # origin center y
+        converted_x = (x_cells * 64.) + (box[:, :, :, 0] * 64.)  # origin center x
+        converted_y = (y_cells * 64.) + (box[:, :, :, 1] * 64.)  # origin center y
         converted_w = tf.minimum(box[..., 2] * 448., 448.)  # origin center w
         converted_h = tf.minimum(box[..., 3] * 448., 448.)  # origin center h
         return tf.stack([converted_x, converted_y, converted_w, converted_h], axis=-1)
@@ -61,15 +61,16 @@ class OutputDecoder(keras.layers.Layer):
         return confidence_score
 
     def call(self, pred):
+        pred = tf.maximum(pred, 0.)
         # get confidence scores
         classes = tf.maximum(pred[..., 10:], 0.)
 
         cond = tf.equal(classes, tf.reduce_max(classes, axis=[-1])[..., None])
         classes = tf.where(cond, classes, tf.zeros_like(classes))
 
-        score1 = tf.maximum(pred[..., 4, None], 0.)
+        score1 = pred[..., 4, None]
         score1 = tf.reshape(self._get_confidence(score1, classes), (-1, 7 * 7, 20))
-        score2 = tf.maximum(pred[..., 4 + 5, None], 0.)
+        score2 = pred[..., 4 + 5, None]
         score2 = tf.reshape(self._get_confidence(score2, classes), (-1, 7 * 7, 20))
         scores = tf.concat([score1, score2], axis=1)
 
@@ -89,7 +90,7 @@ class OutputDecoder(keras.layers.Layer):
         result = tf.image.combined_non_max_suppression(
                                                      boxes=tf.expand_dims(swap_corners, axis=2),
                                                      scores=scores,
-                                                     max_output_size_per_class=49,
+                                                     max_output_size_per_class=self.max_detection_per_class,
                                                      max_total_size=self.max_detection,
                                                      iou_threshold=self.iou_threshold,
                                                      score_threshold=self.score_threshold,

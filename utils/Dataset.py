@@ -109,17 +109,22 @@ def point_adjust(points, img_h, img_w, target_h, target_w):
 
 
 def augmentation(img, names, bndboxes):
-    random_h = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3, dtype=tf.float32)
-    random_w = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3, dtype=tf.float32)
+    bndboxes = tf.cast(bndboxes, dtype=tf.float32)
+    img = tf.cast(img, dtype=tf.float32)
 
-    img_shape = tf.shape(img)
-    resized_h = tf.cast(img_shape[0], dtype=tf.float32) * random_h
-    resized_w = tf.cast(img_shape[1], dtype=tf.float32) * random_w
-    resized_size = tf.concat([tf.cast(resized_h, dtype=tf.int32), tf.cast(resized_w, dtype=tf.int32)], axis=0)
-    img = tf.image.resize(img, resized_size)
+    random_resize = tf.random.uniform(shape=[1], minval=0., maxval=1.)
+    if random_resize < 0.2:
+        random_h = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3, dtype=tf.float32)
+        random_w = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3, dtype=tf.float32)
 
-    bndboxes = point_adjust(tf.cast(bndboxes, dtype=tf.float32), img_shape[0], img_shape[1],
-                            resized_size[0], resized_size[1])
+        img_shape = tf.shape(img)
+        resized_h = tf.cast(img_shape[0], dtype=tf.float32) * random_h
+        resized_w = tf.cast(img_shape[1], dtype=tf.float32) * random_w
+        resized_size = tf.concat([tf.cast(resized_h, dtype=tf.int32), tf.cast(resized_w, dtype=tf.int32)], axis=0)
+        img = tf.image.resize(img, resized_size)
+
+        bndboxes = point_adjust(bndboxes, img_shape[0], img_shape[1],
+                                resized_size[0], resized_size[1])
 
     random_saturation = tf.squeeze(tf.random.uniform(shape=[1], minval=0.1, maxval=1.5, dtype=tf.float32))
     img = tf.image.adjust_saturation(img, random_saturation)
@@ -194,7 +199,7 @@ class DatasetLoader:
         return img, grid
 
     def get_dataset(self, batch_size):
-        train_ds = tf.data.TFRecordDataset([self.train_path]).map(self.tfrecord_reader).map(augmentation)
+        train_ds = tf.data.TFRecordDataset([self.train_path, self.val_path]).map(self.tfrecord_reader).map(augmentation)
         train_ds = train_ds.map(self.resize_and_scaling).map(self.get_output_grid).batch(batch_size)
         train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
 
