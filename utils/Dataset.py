@@ -199,14 +199,12 @@ class DatasetLoader:
         return img, grid
 
     def get_dataset(self, batch_size):
-        train_ds = tf.data.TFRecordDataset([self.train_path, self.val_path]).map(self.tfrecord_reader).map(augmentation)
+        train_ds = tf.data.TFRecordDataset([self.train_path, self.val_path], num_parallel_reads=2)
+        train_ds = train_ds.map(self.tfrecord_reader).shuffle(buffer_size=5000).map(augmentation)
         train_ds = train_ds.map(self.resize_and_scaling).map(self.get_output_grid).batch(batch_size)
         train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
 
-        val_ds = tf.data.TFRecordDataset([self.val_path]).map(self.tfrecord_reader).map(self.resize_and_scaling)
-        val_ds = val_ds.map(self.get_output_grid).batch(batch_size).prefetch(tf.data.AUTOTUNE)
-
-        return train_ds, val_ds
+        return train_ds
 
 
 if __name__ == '__main__':
