@@ -105,7 +105,7 @@ def get_yolo_loss(img_size, s):
         obj_cell = tf.where(y_true[:, :, :, 4] == 1., 1., 0.)   # where the cell idx is existed object
         responsible_cell, iou_scores = get_responsible_cell(y_true, y_pred, obj_cell,
                                                             img_size, s)   # where the cell idx is responsible
-        non_responsible_cell = tf.where(responsible_cell == 0., 1., 0.)   # where the cell idx is not responsible
+        non_obj_cell = tf.where(obj_cell == 0., 1., 0.)[..., None]   # where the cell idx is not responsible
 
         # x,y loss
         x_loss = tf.square(x_point_pred - x_point_true)
@@ -124,7 +124,7 @@ def get_yolo_loss(img_size, s):
         c_loss = tf.reduce_sum(c_loss, [1, 2, 3])
 
         # not confidence loss
-        non_c_loss = tf.square(c_point_pred - iou_scores) * non_responsible_cell
+        non_c_loss = tf.square(c_point_pred - 0.) * non_obj_cell
         non_c_loss = tf.reduce_sum(non_c_loss, [1, 2, 3]) * noobj
 
         # class loss

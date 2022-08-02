@@ -84,7 +84,6 @@ def build_pretrain(input_shape, num_class, decay):
     inputs = Input(input_shape)
     x = feature_extractor(inputs)
     out = GlobalAvgPool2D()(x)
-    out = Dropout(0.5)(out)
     out = Dense(num_class, activation='softmax', kernel_regularizer=L2(decay))(out)
 
     return Model(inputs, out)
