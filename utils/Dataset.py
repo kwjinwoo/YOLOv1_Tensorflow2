@@ -1,6 +1,7 @@
 import tensorflow as tf
 import os
 import random
+from glob import glob
 import xml.etree.ElementTree as elemTree
 from tqdm import tqdm
 
@@ -62,6 +63,7 @@ class DatasetMaker:
         self.img_dir = img_dir
         self.xml_dir = xml_dir
         self.data_list = txt_to_list(txt_path)
+        random.shuffle(self.data_list)
 
     def load_img(self, name):
         name += '.jpg'
@@ -76,7 +78,10 @@ class DatasetMaker:
     def make_tfrecord(self, save_path):
         with tf.io.TFRecordWriter(save_path) as f:
             for name in tqdm(self.data_list, desc="saving at " + save_path):
-                xml_file = self.load_xml(name)
+                try:
+                    xml_file = self.load_xml(name)
+                except FileNotFoundError as e:
+                    continue
                 names, bndboxes = label_parse(xml_file)
                 bndboxes = tf.io.serialize_tensor(bndboxes).numpy()
                 img = self.load_img(name)
@@ -132,9 +137,8 @@ def augmentation(img, names, bndboxes):
 
 
 class DatasetLoader:
-    def __init__(self, train_path, val_path, img_size, s, num_class):
-        self.train_path = train_path
-        self.val_path = val_path
+    def __init__(self, data_dir, img_size, s, num_class):
+        self.dataset_paths = glob(os.path.join(data_dir, '*'))
         self.img_size = img_size
         self.s = s
         self.num_class = num_class
@@ -199,8 +203,8 @@ class DatasetLoader:
         return img, grid
 
     def get_dataset(self, batch_size):
-        train_ds = tf.data.TFRecordDataset([self.train_path, self.val_path], num_parallel_reads=2)
-        train_ds = train_ds.map(self.tfrecord_reader).shuffle(buffer_size=5000).map(augmentation)
+        train_ds = tf.data.TFRecordDataset(self.dataset_paths, num_parallel_reads=len(self.dataset_paths))
+        train_ds = train_ds.map(self.tfrecord_reader).shuffle(buffer_size=5000)#.map(augmentation)
         train_ds = train_ds.map(self.resize_and_scaling).map(self.get_output_grid).batch(batch_size)
         train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
 

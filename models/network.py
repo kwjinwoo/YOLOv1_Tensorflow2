@@ -1,15 +1,16 @@
 import tensorflow as tf
 from tensorflow import keras
+from keras.regularizers import L2
 
 
 # build model
 # return detector model
-def build_model(input_shape=(224, 224, 3), train_type='OD'):
+def build_model(input_shape, decay):
     # feature extractor
-    mobilenet = keras.applications.MobileNetV2(include_top=False, input_shape=input_shape, weights='imagenet')
+    mobilenet = keras.applications.VGG19(include_top=False, input_shape=input_shape, weights='imagenet')
 
     fc = keras.layers.GlobalAveragePooling2D()(mobilenet.output)   # flatten --> gap
-    fc = keras.layers.Dense(7 * 7 * (5 * 2 + 20))(fc)    # predict
+    fc = keras.layers.Dense(7 * 7 * (5 * 2 + 20), kernel_regularizer=L2(decay))(fc)    # predict
     out = keras.layers.Reshape((7, 7, 5 * 2 + 20))(fc)   # reshape
 
     model = keras.models.Model(mobilenet.input, out)
@@ -104,6 +105,5 @@ class OutputDecoder(keras.layers.Layer):
 
 
 if __name__ == '__main__':
-    detector = build_model()
-    # print(detector.summary())
-    decoder = OutputDecoder()
+    detector = build_model((448, 448, 3), 0.0005)
+    print(detector.summary())
