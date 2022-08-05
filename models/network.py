@@ -10,7 +10,7 @@ def build_model(input_shape, decay):
     mobilenet = keras.applications.VGG19(include_top=False, input_shape=input_shape, weights='imagenet')
 
     fc = keras.layers.GlobalAveragePooling2D()(mobilenet.output)   # flatten --> gap
-    fc = keras.layers.Dense(7 * 7 * (5 * 2 + 20), kernel_regularizer=L2(decay))(fc)    # predict
+    fc = keras.layers.Dense(7 * 7 * (5 * 2 + 20), activation='sigmoid', kernel_regularizer=L2(decay))(fc)    # predict
     out = keras.layers.Reshape((7, 7, 5 * 2 + 20))(fc)   # reshape
 
     model = keras.models.Model(mobilenet.input, out)

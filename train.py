@@ -49,7 +49,8 @@ if __name__ == '__main__':
     loader = DatasetLoader(args.dataset_dir, img_size, s, num_class)
     train_ds = loader.get_dataset(batch_size)
 
-    callbacks_list = [keras.callbacks.LearningRateScheduler(lr_scheduler, verbose=1)]
+    callbacks_list = [keras.callbacks.LearningRateScheduler(lr_scheduler, verbose=1),
+                      keras.callbacks.TerminateOnNaN()]
 
     hist = yolo.fit(train_ds, epochs=num_epochs, callbacks=callbacks_list)
     yolo.save_weights('./ckpt/yolo')

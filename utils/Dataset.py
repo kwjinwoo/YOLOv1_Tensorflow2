@@ -204,7 +204,7 @@ class DatasetLoader:
 
     def get_dataset(self, batch_size):
         train_ds = tf.data.TFRecordDataset(self.dataset_paths, num_parallel_reads=len(self.dataset_paths))
-        train_ds = train_ds.map(self.tfrecord_reader).shuffle(buffer_size=5000)#.map(augmentation)
+        train_ds = train_ds.map(self.tfrecord_reader).shuffle(buffer_size=5000).map(augmentation)
         train_ds = train_ds.map(self.resize_and_scaling).map(self.get_output_grid).batch(batch_size)
         train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
 
