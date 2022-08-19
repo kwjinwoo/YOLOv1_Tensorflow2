@@ -189,7 +189,8 @@ class DatasetLoader:
 
     def resize_and_scaling(self, img, name, bndboxes):
         img_shape = tf.shape(img)
-        img = tf.image.resize(img, (self.img_size, self.img_size)) / 255.
+        img = tf.image.resize(img, (self.img_size, self.img_size))
+        img = tf.keras.applications.xception.preprocess_input(img)
         if tf.size(bndboxes) == 0:
             adjust_bndboxes = tf.cast(bndboxes, dtype=tf.float32)
         else:
