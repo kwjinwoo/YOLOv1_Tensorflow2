@@ -5,22 +5,27 @@ from keras.regularizers import L2
 
 # build model
 # return detector model
-def build_model(input_shape, decay):
+def build_model(input_shape):
     # feature extractor
-    mobilenet = keras.applications.VGG19(include_top=False, input_shape=input_shape, weights='imagenet')
+    backbone = keras.applications.Xception(include_top=False, input_shape=input_shape, weights='imagenet')
 
-    fc = keras.layers.GlobalAveragePooling2D()(mobilenet.output)   # flatten --> gap
-    fc = keras.layers.Dense(7 * 7 * (5 * 2 + 20), activation='sigmoid', kernel_regularizer=L2(decay))(fc)    # predict
+    head = keras.layers.MaxPool2D(pool_size=(2, 2), padding='same')(backbone.output)
+    head = keras.layers.Conv2D(filters=1024, kernel_size=1, padding='same',
+                               use_bias=False, activation='relu')(head)
+    fc = keras.layers.Flatten()(head)   # flatten --> gap
+    fc = keras.layers.Dense(4096, use_bias=False, activation='relu')(fc)
+    fc = keras.layers.Dropout(0.5)(fc)
+    fc = keras.layers.Dense(7 * 7 * (5 * 2 + 20), activation='sigmoid', use_bias=False)(fc)    # predict
     out = keras.layers.Reshape((7, 7, 5 * 2 + 20))(fc)   # reshape
 
-    model = keras.models.Model(mobilenet.input, out)
+    model = keras.models.Model(backbone.input, out)
     return model
 
 
 # convert output to bounding box
 # using non maximum suppression(nms)
 class OutputDecoder(keras.layers.Layer):
-    def __init__(self, max_detection_per_class=100, max_detection=100, iou_threshold=0.4, score_threshold=0.05):
+    def __init__(self, max_detection_per_class=100, max_detection=100, iou_threshold=0.5, score_threshold=0.5):
         super(OutputDecoder, self).__init__()
         self.max_detection_per_class = max_detection_per_class
         self.iou_threshold = iou_threshold
@@ -105,5 +110,5 @@ class OutputDecoder(keras.layers.Layer):
 
 
 if __name__ == '__main__':
-    detector = build_model((448, 448, 3), 0.0005)
-    print(detector.summary())
+    yolo = build_model((448, 448, 3))
+    print(yolo.summary())

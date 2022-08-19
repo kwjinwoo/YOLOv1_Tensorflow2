@@ -4,6 +4,8 @@ import random
 from glob import glob
 import xml.etree.ElementTree as elemTree
 from tqdm import tqdm
+import albumentations as A
+import numpy as np
 
 
 class_dict = {
@@ -113,32 +115,57 @@ def point_adjust(points, img_h, img_w, target_h, target_w):
     return tf.stack([x, y, w, h], axis=-1)
 
 
-def augmentation(img, names, bndboxes):
-    bndboxes = tf.cast(bndboxes, dtype=tf.float32)
-    img = tf.cast(img, dtype=tf.float32)
+def aug_fn(img, bndboxes, names):
+    data = {"image": img,
+            "bboxes": bndboxes,
+            "class_indices": names}
+    img_shape = img.shape
+    transform = get_transformer(img_shape[1], img_shape[0])
+    transformed_data = transform(**data)
+    transformed_image = transformed_data['image']
+    transformed_bboxes = np.array(transformed_data['bboxes'], dtype=np.float32)
+    transformed_names = np.array(transformed_data['class_indices'], dtype=np.float32)
 
-    random_resize = tf.random.uniform(shape=[1], minval=0., maxval=1.)
-    if random_resize < 0.2:
-        random_h = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3, dtype=tf.float32)
-        random_w = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3, dtype=tf.float32)
+    transformed_image = tf.cast(transformed_image, dtype=tf.float32)
+    transformed_bboxes = tf.cast(transformed_bboxes, dtype=tf.float32)
+    transformed_names = tf.cast(transformed_names, dtype=tf.int64)
+    return transformed_image, transformed_bboxes, transformed_names
 
-        img_shape = tf.shape(img)
-        resized_h = tf.cast(img_shape[0], dtype=tf.float32) * random_h
-        resized_w = tf.cast(img_shape[1], dtype=tf.float32) * random_w
-        resized_size = tf.concat([tf.cast(resized_h, dtype=tf.int32), tf.cast(resized_w, dtype=tf.int32)], axis=0)
-        img = tf.image.resize(img, resized_size)
 
-        bndboxes = point_adjust(bndboxes, img_shape[0], img_shape[1],
-                                resized_size[0], resized_size[1])
-
-    random_saturation = tf.squeeze(tf.random.uniform(shape=[1], minval=0.1, maxval=1.5, dtype=tf.float32))
-    img = tf.image.adjust_saturation(img, random_saturation)
+@tf.function
+def transform_augmentation(img, names, bndboxes):
+    img, bndboxes, names = tf.numpy_function(func=aug_fn, inp=[img, bndboxes, names],
+                                      Tout=[tf.float32, tf.float32, tf.int64])
+    img.set_shape([None, None, 3])
+    bndboxes.set_shape([None, 4])
+    names.set_shape([None])
     return img, names, bndboxes
+
+
+def get_transformer(w, h):
+    h_crop_ratio = np.random.uniform(low=0.25, high=0.9)
+    w_crop_ratio = np.random.uniform(low=0.25, high=0.9)
+    h_crop = int(h * h_crop_ratio)
+    w_crop = int(w * w_crop_ratio)
+    transform = A.Compose(
+        [
+            A.HorizontalFlip(p=0.5),
+            A.RandomCrop(width=w_crop, height=h_crop, p=0.5),
+            A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
+        ],
+        bbox_params=A.BboxParams(
+            format='pascal_voc',
+            min_visibility=0.2,
+            label_fields=['class_indices'],
+        ),
+    )
+    return transform
 
 
 class DatasetLoader:
     def __init__(self, data_dir, img_size, s, num_class):
-        self.dataset_paths = glob(os.path.join(data_dir, '*'))
+        self.val_path = glob(os.path.join(data_dir, 'test*'))
+        self.train_path = glob(os.path.join(data_dir, 'trainval*'))
         self.img_size = img_size
         self.s = s
         self.num_class = num_class
@@ -163,8 +190,11 @@ class DatasetLoader:
     def resize_and_scaling(self, img, name, bndboxes):
         img_shape = tf.shape(img)
         img = tf.image.resize(img, (self.img_size, self.img_size)) / 255.
-        adjust_bndboxes = point_adjust(tf.cast(bndboxes, dtype=tf.float32), img_shape[0], img_shape[1],
-                                       self.img_size, self.img_size)
+        if tf.size(bndboxes) == 0:
+            adjust_bndboxes = tf.cast(bndboxes, dtype=tf.float32)
+        else:
+            adjust_bndboxes = point_adjust(tf.cast(bndboxes, dtype=tf.float32), img_shape[0], img_shape[1],
+                                           self.img_size, self.img_size)
         return img, name, adjust_bndboxes
 
     def get_cell_idx(self, points):
@@ -203,12 +233,16 @@ class DatasetLoader:
         return img, grid
 
     def get_dataset(self, batch_size):
-        train_ds = tf.data.TFRecordDataset(self.dataset_paths, num_parallel_reads=len(self.dataset_paths))
-        train_ds = train_ds.map(self.tfrecord_reader).shuffle(buffer_size=5000).map(augmentation)
+        train_ds = tf.data.TFRecordDataset(self.train_path, num_parallel_reads=len(self.train_path))
+        train_ds = train_ds.map(self.tfrecord_reader).shuffle(buffer_size=5000).map(transform_augmentation)
         train_ds = train_ds.map(self.resize_and_scaling).map(self.get_output_grid).batch(batch_size)
         train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
 
-        return train_ds
+        val_ds = tf.data.TFRecordDataset(self.val_path)
+        val_ds = val_ds.map(self.tfrecord_reader).map(self.resize_and_scaling).map(self.get_output_grid)
+        val_ds = val_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+        return train_ds, val_ds
 
 
 if __name__ == '__main__':
