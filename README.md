@@ -85,7 +85,7 @@ Inference result saved at infer dir
 * Train
 ![Train Result](./asset/Train_result.png)
 * Validation
-![Validation Result](./asset/Val_result.png)
+![Validation Result](./asset/Valid_result.png)
 * Test
 ![Test Result](./asset/Test_result.png)
 ## Reference
