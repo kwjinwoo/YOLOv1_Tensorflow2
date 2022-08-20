@@ -3,7 +3,6 @@ from loss import YOLOLoss
 from models import network
 from tensorflow import keras
 import argparse
-import tensorflow_addons as tfa
 
 
 parser = argparse.ArgumentParser(description='Train detector file')
@@ -11,7 +10,6 @@ parser.add_argument('--img_size', default=448, type=int, help="image input size"
 parser.add_argument('--dataset_dir', required=True, type=str, help="train tfrecord dir")
 parser.add_argument('--s', default=7, type=int, help="output grid num")
 parser.add_argument('--num_class', default=20, type=int, help="the number of class")
-parser.add_argument('--pretrain', default=None, type=str, help="pretrained model weights path")
 parser.add_argument('--num_epoch', default=105, type=int, help='train_epoch')
 parser.add_argument('--batch_size', default=32, type=int, help='batch_size')
 
@@ -23,7 +21,6 @@ if __name__ == '__main__':
     s = args.s
     num_class = args.num_class
 
-    pretrain = args.pretrain
     num_epochs = args.num_epoch
     batch_size = args.batch_size
 
@@ -52,4 +49,18 @@ if __name__ == '__main__':
                       keras.callbacks.TerminateOnNaN()]
 
     hist = yolo.fit(train_ds, validation_data=val_ds, epochs=num_epochs, callbacks=callbacks_list, verbose=1)
-    yolo.save_weights('./ckpt/yolo')
+    yolo.save_weights('./ckpt/yolo_final')
+
+    # model save
+    decoder = network.OutputDecoder()
+
+    out = decoder(yolo.output)
+    final_model = keras.models.Model(yolo.input, out)
+    final_model.save("./model_asset/yolo_final")
+
+    # valid best model
+    yolo.load_weights("./ckpt/valid_best_yolo")
+
+    out = decoder(yolo.output)
+    final_model = keras.models.Model(yolo.input, out)
+    final_model.save("./model_asset/valid_best_yolo")
