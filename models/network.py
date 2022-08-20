@@ -1,6 +1,5 @@
 import tensorflow as tf
 from tensorflow import keras
-from keras.regularizers import L2
 
 
 # build model
@@ -12,7 +11,7 @@ def build_model(input_shape):
     head = keras.layers.MaxPool2D(pool_size=(2, 2), padding='same')(backbone.output)
     head = keras.layers.Conv2D(filters=1024, kernel_size=1, padding='same',
                                use_bias=False, activation='relu')(head)
-    fc = keras.layers.Flatten()(head)   # flatten --> gap
+    fc = keras.layers.Flatten()(head)
     fc = keras.layers.Dense(4096, use_bias=False, activation='relu')(fc)
     fc = keras.layers.Dropout(0.5)(fc)
     fc = keras.layers.Dense(7 * 7 * (5 * 2 + 20), activation='sigmoid', use_bias=False)(fc)    # predict
