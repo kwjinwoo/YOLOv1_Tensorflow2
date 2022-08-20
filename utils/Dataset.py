@@ -32,6 +32,7 @@ class_dict = {
 }
 
 
+# convert text file to list
 def txt_to_list(path):
     file_namelist = []
     txt_file = open(path, 'r').readlines()
@@ -42,6 +43,8 @@ def txt_to_list(path):
     return file_namelist
 
 
+# convert class name to int
+# get bounding box info(xMin, yMin, xMax, yMax)
 def label_parse(label):
     obj_list = label.getroot().findall('./object')
     names = []
@@ -52,6 +55,7 @@ def label_parse(label):
     return names, bndboxes
 
 
+# get Box Information
 def box_parser(bndbox):
     xmin = int(bndbox.find('./xmin').text)
     ymin = int(bndbox.find('./ymin').text)
@@ -60,11 +64,12 @@ def box_parser(bndbox):
     return [xmin, ymin, xmax, ymax]
 
 
+# making Dataset class
 class DatasetMaker:
     def __init__(self, img_dir, xml_dir, txt_path):
-        self.img_dir = img_dir
-        self.xml_dir = xml_dir
-        self.data_list = txt_to_list(txt_path)
+        self.img_dir = img_dir   # images directory
+        self.xml_dir = xml_dir   # xmls directory
+        self.data_list = txt_to_list(txt_path)   # file list
         random.shuffle(self.data_list)
 
     def load_img(self, name):
@@ -101,12 +106,14 @@ class DatasetMaker:
                 f.write(record.SerializeToString())
 
 
+# VOC box format to YOLO format
 def convert_to_center(points):
     center_points = tf.concat([points[:2] + (points[2:] - points[:2]) / 2.,
                                points[2:] - points[:2]], axis=0)
     return center_points
 
 
+# point convert for resized img
 def point_adjust(points, img_h, img_w, target_h, target_w):
     x = float(target_w / img_w) * points[..., 0]
     y = float(target_h / img_h) * points[..., 1]
@@ -115,6 +122,7 @@ def point_adjust(points, img_h, img_w, target_h, target_w):
     return tf.stack([x, y, w, h], axis=-1)
 
 
+# augmentation
 def aug_fn(img, bndboxes, names):
     data = {"image": img,
             "bboxes": bndboxes,
@@ -162,14 +170,15 @@ def get_transformer(w, h):
     return transform
 
 
+# Tfrecord file Load class
 class DatasetLoader:
     def __init__(self, data_dir, img_size, s, num_class):
-        self.val_path = glob(os.path.join(data_dir, 'test*'))
+        self.val_path = glob(os.path.join(data_dir, 'test*'))   # PASCAL VOC 2007 test
         self.train_path = glob(os.path.join(data_dir, 'trainval*'))
         self.img_size = img_size
         self.s = s
         self.num_class = num_class
-        self.cell_len = float(img_size // s)
+        self.cell_len = float(img_size // s)   # one cell length
 
     @tf.function
     def tfrecord_reader(self, example):

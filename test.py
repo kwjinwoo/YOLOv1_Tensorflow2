@@ -36,6 +36,7 @@ class_dict = {
 }
 
 
+# get input image sample, and origin image, resized scale
 def get_sample(path, input_shape):
     target_size = input_shape[0]
     image = tf.io.decode_image(tf.io.read_file(path), channels=3)
@@ -51,6 +52,7 @@ def get_sample(path, input_shape):
     return input_image, image.numpy(), h_scale, w_scale
 
 
+# visualize infer result and save
 def visualize(boxes, names, img, h_scale, w_scale, save_path):
     for box, name in zip(boxes, names):
         pt1 = int(box[1] * w_scale), int(box[0] * h_scale)
